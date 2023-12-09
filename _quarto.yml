@@ -7,7 +7,7 @@ website:
     left:
       - href: index.qmd
         text: Home
-      - href: Final-Report.qmd
+      - href: Final-Report.pdf
         text: Download the Report
 
 format:
