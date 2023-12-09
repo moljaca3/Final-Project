@@ -1,4 +1,189 @@
 ---
 title: "Final Report"
 author: "Maria Oljaca"
+format: html
+embed-resources: true
+editor: visual
 ---
+
+# Introduction
+
+### Background:
+
+\[Note: "Protein X" and "Protein Y" are used in place of actual protein names for data security purposes.\]
+
+This dataset originates from an experiment focused on stem cell therapy for bone regeneration, using a rat animal model. Prior research has established the effectiveness of stem cells transduced with Protein X in treating critical-sized bone defects. In rat studies, it has been established that five million cells is the standard dose needed to heal critical-sized bone defects.
+
+This study serves a dual purpose: it seeks to ascertain whether Protein Y, an upstream protein of Protein X, can enhance the bone-healing capabilities of Protein X. Furthermore, it aims to determine whether a reduced dosage of three million cells can produce comparable bone-healing outcomes.
+
+The study includes four distinct experimental groups: X+Y5M, X+Y3M, X5M, and X3M. Critical-sized femoral defects, created surgically in rats, were treated with either three or five million stem cells transduced with a virus encoding Protein X, or a combination of both Protein X and Y. Subsequently, the quality and quantity of bone formation in rat femurs were assessed through various methods, including biomechanical strength testing, the results of which are contained in this dataset. The key variables measured with biomechanical testing are max torque (N), torsional stiffness (Nm/deg), total energy to failure (Nm\*deg), and rotation at failure or max displacement (deg). Torsional stiffness is considered to be the most important variable in measuring the integrity of regenerated bone.
+
+### Question:
+
+Which experimental group showed the greatest levels of bone regeneration, as measured by torsional stiffness, max torque, total energy to failure, and max displacement?
+
+# Methods
+
+The dataset used for this project was obtained from a colleague who recently conducted the above experiment. I received the results of the biomechanical testing in an Excel file via email and read them in using the readxl R package.
+
+```{r, results='hide', echo=FALSE}
+# Read in the data
+library(readxl)
+xy_bmech <- read_excel("data/XY Biomechanical Results.xlsx")
+```
+
+```{r, results='hide', message=FALSE, echo=FALSE}
+library(tidyverse)
+```
+
+For data exploration and wrangling, I mainly used base R and the dplyr package within tidyverse. Kable, ggplot2, and cowplot were used to display summary statistics and visualize the data.
+
+First, I evaluated the data's integrity using the "dim," "head," and "tail" functions. These actions showed that there were no apparent import issues and that the data set contains 34 rows and 5 columns: SID, Stiffness, Total Energy, Max Torque, and Max Displacement. Next, I checked the variables using the "str" function, which revealed no major issues and variable types as expected.
+
+```{r, results='hide', echo=FALSE}
+# Checking the dimenstions, headers, footers
+dim(xy_bmech)
+head(xy_bmech)
+tail(xy_bmech)
+# Checking variables
+str(xy_bmech)
+```
+
+The imported dataset did not include a column for experimental groups. However, that information was recorded in another document provided to me by my colleague. I created a new data frame mapping each observation to its correct experimental group, and then used the "left_join" function to join this data frame to my dataset (xy_bmech) by "SID."
+
+```{r, results='hide', echo=FALSE}
+# Defining and mapping SID to Experimental Group
+experimental_groups <- data.frame(
+  SID = c(
+    "518L", "516R", "571L", "545R", "509L", "506R", "186R", "187L", "146L",
+    "195L", "122R", "182L", "179R", "178L", "142L", "141R", "172L", "177R", "553R", "145R",
+    "144L", "124R", "919R", "189L", "166R", "167L", "552R", "538R", "512L", "501L",
+    "193R", "592L", "510R", "129R", "150L", "188L"
+  ),
+  Exp_Group = c(
+    "X+Y3M", "X+Y3M", "X+Y3M", "X+Y3M", "X+Y3M", "X+Y3M", "X+Y3M", "X+Y3M", "X+Y3M",
+    "X3M", "X3M", "X3M", "X3M", "X3M", "X3M", "X3M", "X3M", "X3M", "X5M", "X5M", "X5M", "X5M", "X5M", "X5M", "X5M", "X5M", "X5M", "X+Y5M", "X+Y5M",
+    "X+Y5M", "X+Y5M", "X+Y5M", "X+Y5M", "X+Y5M", "X+Y5M", "X+Y5M"
+  )
+)
+xy_bmech <- xy_bmech %>%
+  left_join(experimental_groups, by = "SID")
+```
+
+Next, I renamed some variables for ease of coding using the "rename" function.
+
+```{r, results='hide', echo=FALSE}
+xy_bmech <- xy_bmech %>%
+  rename(Total_Energy = `Total Energy`,
+         Max_Torque = `Max Torque`,
+         Max_Displacement = `Max Displacement`)
+```
+
+Returning to the EDA checklist, I used the "summary" and "table" functions to take a closer look at the key variables, which showed 9 observations per experimental group. There also seemed to be a wide range of values for each variable (although plausible), and "mean(is.na())" showed there to be 3.7% missing data.
+
+```{r, results='hide', echo=FALSE}
+# Taking a closer look at key variables
+summary(xy_bmech$Stiffness)
+summary(xy_bmech$Total_Energy)
+summary(xy_bmech$Max_Torque)
+summary(xy_bmech$Max_Displacement)
+table(xy_bmech$Exp_Group)
+mean(is.na(xy_bmech))
+```
+
+Histograms and boxplots revealed that most of the key biomechanical variables had a right-skewed distribution in addition to two or more outliers, which indicated that I should use median and IQR to summarize my data rather than the mean and standard deviation.
+
+```{r, echo=FALSE}
+# Create a 2x2 layout
+par(mfrow = c(2, 2))
+# Plot the first histogram
+hist(xy_bmech$Stiffness, main = "Distribution of Torsional Stiffness", xlab = "Stiffness", ylab = "Frequency")
+# Plot the second histogram
+hist(xy_bmech$Total_Energy, main = "Distribution of Total Energy", xlab = "Total Energy", ylab = "Frequency")
+# Plot the third histogram
+hist(xy_bmech$Max_Torque, main = "Distribution of Max Torque", xlab = "Max Torque", ylab = "Frequency")
+# Plot the fourth histogram
+hist(xy_bmech$Max_Displacement, main = "Distribution of Max Displacement", xlab = "Max Displacement", ylab = "Frequency")
+
+# Create a 2x2 layout
+par(mfrow = c(2, 2))
+# Plot the first boxplot
+boxplot(xy_bmech$Stiffness, main = "Boxplot of Torsional Stiffness", xlab = "Stiffness", ylab = "Values")
+# Plot the second boxplot
+boxplot(xy_bmech$Total_Energy, main = "Boxplot of Total Energy", xlab = "Total Energy", ylab = "Values")
+# Plot the third boxplot
+boxplot(xy_bmech$Max_Torque, main = "Boxplot of Max Torque", xlab = "Max Torque", ylab = "Values")
+# Plot the fourth boxplot
+boxplot(xy_bmech$Max_Displacement, main = "Boxplot of Max Displacement", xlab = "Max Displacement", ylab = "Values")
+```
+
+Per my colleague, a priori power analysis for this experiment had determined that 9 animals per group were needed, for a total of 36. However, there were 34 in this experiment because one rat was mislabeled and the other was not strong enough to undergo biomechanical testing.
+
+Although 9 animals per group are needed for adequate statistical power, I chose to remove the missing values to avoid creating false positives, and given that less than 5% of the data is missing.
+
+```{r, results='hide', echo=FALSE}
+# Removing missing values
+xy_bmech <- na.omit(xy_bmech)
+```
+
+# Preliminary Results
+
+### Summary Statistics
+
+```{r, message=FALSE, echo=FALSE}
+library(kableExtra)
+```
+
+```{r, results='hide', echo=FALSE}
+summary_stats <- xy_bmech %>%
+  group_by(Exp_Group) %>%
+  summarize(
+    "Stiffness (Nm/deg)" = paste0(round(median(Stiffness, na.rm = TRUE), 4), " (", round(IQR(Stiffness, na.rm = TRUE), 4), ")"),
+    "Total Energy (Nm*deg)" = paste0(round(median(Total_Energy, na.rm = TRUE), 2), " (", round(IQR(Total_Energy, na.rm = TRUE), 2), ")"),
+    "Max Torque (N)" = paste0(round(median(Max_Torque, na.rm = TRUE), 4), " (", round(IQR(Max_Torque, na.rm = TRUE), 4), ")"),
+    "Max Displacement (deg)" = paste0(round(median(Max_Displacement, na.rm = TRUE), 2), " (", round(IQR(Max_Displacement, na.rm = TRUE), 2), ")")
+  )
+colnames(summary_stats)[1] <- "Experimental Group"
+```
+
+```{r, echo=FALSE}
+summary_table <- summary_stats %>%
+  kable("html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = FALSE) %>%
+  add_footnote("Values represent median (IQR)")
+summary_table
+```
+
+### Data Visualization
+
+```{r, echo=FALSE}
+box_plots <- list()
+
+for (variable in c("Stiffness", "Total_Energy", "Max_Torque", "Max_Displacement")) {
+  p <- ggplot(xy_bmech, aes(x = Exp_Group, y = .data[[variable]], fill = Exp_Group)) +
+    geom_boxplot() +
+    labs(
+      title = paste(variable),
+      x = "Experimental Group",
+      y = variable
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")  # Remove legend for individual plots
+    
+  box_plots[[variable]] <- p
+}
+combined_plots <- cowplot::plot_grid(plotlist = box_plots, ncol = 2, labels = "AUTO")
+combined_plots
+```
+
+# Conclusion
+
+Observing the summary table and boxplots, it appears that bone in the X+Y5M group performed the best on most measures of biomechanical strength, including torsional stiffness, total energy to failure, and max torque.
+
+For the most important variable in measuring bone integrity, torsional stiffness, X+Y5M minimally outperformed X+Y3M (median stiffnesses of 0.0341 Nm/deg vs 0.0324 Nm/deg, respectively). However, X+Y5M had much greater varability in torsional stiffness.
+
+X+Y3M outperformed X+Y5M on rotation at failure, or max displacement. The X+Y5M group also generally had the greatest variability in markers of biomechanical strength other than max displacement.
+
+In general, it also appears that both of the X+Y experimental groups outperformed the X only groups on measures of biomechanical strength other than total energy to failure, in which the X+Y3M group performed the worst.
+
+On visualization, many of these differences appear minuscule. It is not possible to form a full conclusion on which experimental treatment was most successful at bone healing until analytic statistics are applied.
